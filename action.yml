@@ -13,11 +13,14 @@ inputs:
     description: 'Anthropic API key for LLM calls. Required unless OpenAI or Cloudflare Workers AI credentials are provided.'
     required: false
   cloudflare-api-key:
-    description: 'Cloudflare API token with Workers AI access. Enables using cloudflare-workers-ai/* models (e.g. Kimi). Requires cloudflare-account-id.'
+    description: 'Cloudflare API token for Workers AI or AI Gateway catalog models. Requires cloudflare-account-id and model billing/access.'
     required: false
   cloudflare-account-id:
-    description: 'Cloudflare account ID for the Workers AI REST endpoint. Required when cloudflare-api-key is set.'
+    description: 'Cloudflare account ID for the AI REST endpoint. Required when cloudflare-api-key is set.'
     required: false
+  cloudflare-models:
+    description: 'JSON mapping catalog IDs to api, contextWindow, maxTokens, and optional reasoning/compat metadata. Select with cloudflare-ai/<catalog-id>; no Workers deployment or named Gateway is required.'
+    default: '{}'
   openai-api-key:
     description: 'OpenAI API key for LLM calls. Required unless Anthropic or Cloudflare Workers AI credentials are provided.'
     required: false

@@ -5,9 +5,10 @@ import {
 	createFlueContext,
 	InMemoryFs,
 	InMemorySessionStore,
-	resolveModel,
 } from '@flue/runtime/internal';
 import { createFlueEventLogger } from './flue-logging.ts';
+import { getInput } from './input.ts';
+import { createModelResolver } from './models.ts';
 
 const defaultStore = new InMemorySessionStore();
 
@@ -32,9 +33,13 @@ export async function createSession(agent: CreatedAgent): Promise<FlueSession> {
 		agentConfig: {
 			systemPrompt: '',
 			skills: {},
-			roles: {},
+			subagents: {},
 			model: undefined,
-			resolveModel,
+			resolveModel: createModelResolver(
+				getInput('cloudflare-models'),
+				process.env.CLOUDFLARE_ACCOUNT_ID,
+				process.env.CLOUDFLARE_API_KEY,
+			),
 		},
 		createDefaultEnv,
 		defaultStore,
