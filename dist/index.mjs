@@ -241098,16 +241098,50 @@ var modelConfig = strictObject({
   contextWindow: pipe(number(), integer(), minValue(1)),
   maxTokens: pipe(number(), integer(), minValue(1)),
   reasoning: optional(boolean(), false),
+  thinkingLevelMap: optional(
+    record(
+      picklist(["off", "minimal", "low", "medium", "high", "xhigh"]),
+      nullable(string())
+    )
+  ),
   compat: optional(
     strictObject({
       forceAdaptiveThinking: optional(boolean()),
       supportsTemperature: optional(boolean()),
-      supportsReasoningEffort: optional(boolean())
+      supportsReasoningEffort: optional(boolean()),
+      maxTokensField: optional(picklist(["max_tokens", "max_completion_tokens"])),
+      requiresReasoningContentOnAssistantMessages: optional(boolean())
     })
   )
 });
+var DEFAULT_MODEL2 = "cloudflare-ai/moonshotai/kimi-k3.1-pro";
+var defaultModels = {
+  "moonshotai/kimi-k3.1-pro": {
+    api: "openai-completions",
+    contextWindow: 1048576,
+    maxTokens: 16384,
+    reasoning: true,
+    // K3.1 always reasons and accepts low/high/max, rather than medium.
+    thinkingLevelMap: {
+      off: null,
+      minimal: "low",
+      low: "low",
+      medium: "high",
+      high: "high",
+      xhigh: "max"
+    },
+    compat: {
+      supportsReasoningEffort: true,
+      maxTokensField: "max_tokens",
+      requiresReasoningContentOnAssistantMessages: true
+    }
+  }
+};
 function createModelResolver(input, accountId, apiKey) {
-  const models = parse(record(string(), modelConfig), JSON.parse(input || "{}"));
+  const models = {
+    ...defaultModels,
+    ...parse(record(string(), modelConfig), JSON.parse(input || "{}"))
+  };
   return (name) => {
     if (!name || !name.startsWith("cloudflare-ai/")) return resolveModel(name);
     const id = name.slice("cloudflare-ai/".length);
@@ -242026,8 +242060,8 @@ async function main() {
     prSkillName: getInput("pr-skill-name") || "pr-writer",
     autoPrOnFix: getInput("auto-pr-on-fix") === "true",
     buildCommand: getInput("build-command") || null,
-    triageModel: getInput("triage-model") || "anthropic/claude-opus-4-6",
-    verificationModel: getInput("verification-model") || "anthropic/claude-sonnet-4-6",
+    triageModel: getInput("triage-model") || DEFAULT_MODEL2,
+    verificationModel: getInput("verification-model") || DEFAULT_MODEL2,
     labels,
     botLogins: parseBotLogins(getInput("bot-logins"))
   };
