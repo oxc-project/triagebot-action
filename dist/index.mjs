@@ -241114,8 +241114,27 @@ var modelConfig = strictObject({
     })
   )
 });
-var DEFAULT_MODEL2 = "cloudflare-ai/moonshotai/kimi-k3.1-pro";
+var DEFAULT_MODEL2 = "cloudflare-ai/@cf/zai-org/glm-5.3";
 var defaultModels = {
+  "@cf/zai-org/glm-5.3": {
+    api: "openai-completions",
+    contextWindow: 1048576,
+    maxTokens: 16384,
+    reasoning: true,
+    thinkingLevelMap: {
+      off: null,
+      minimal: "low",
+      low: "low",
+      medium: "high",
+      high: "high",
+      xhigh: "max"
+    },
+    compat: {
+      supportsReasoningEffort: true,
+      maxTokensField: "max_tokens",
+      requiresReasoningContentOnAssistantMessages: true
+    }
+  },
   "moonshotai/kimi-k3.1-pro": {
     api: "openai-completions",
     contextWindow: 1048576,

@@ -47,10 +47,10 @@ inputs:
 
   triage-model:
     description: 'Model for the triage pipeline (reproduce/diagnose/verify/fix)'
-    default: 'cloudflare-ai/moonshotai/kimi-k3.1-pro'
+    default: 'cloudflare-ai/@cf/zai-org/glm-5.3'
   verification-model:
     description: 'Model for fix verification and retriage checks'
-    default: 'cloudflare-ai/moonshotai/kimi-k3.1-pro'
+    default: 'cloudflare-ai/@cf/zai-org/glm-5.3'
 
   # Label customization
   label-needs-triage:
