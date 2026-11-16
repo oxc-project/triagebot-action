@@ -13,7 +13,7 @@ import { handleTriage } from './handlers/triage.ts';
 import { handleVerifyFix } from './handlers/verify-fix.ts';
 import { getInput } from './input.ts';
 import { labelConfigFromInputs } from './labels.ts';
-import { createModelResolver } from './models.ts';
+import { createModelResolver, DEFAULT_MODEL } from './models.ts';
 import { type GitHubEvent, route } from './router.ts';
 
 // ---------- GitHub Actions helpers ----------
@@ -66,8 +66,8 @@ async function main(): Promise<void> {
 		prSkillName: getInput('pr-skill-name') || 'pr-writer',
 		autoPrOnFix: getInput('auto-pr-on-fix') === 'true',
 		buildCommand: getInput('build-command') || null,
-		triageModel: getInput('triage-model') || 'anthropic/claude-opus-4-6',
-		verificationModel: getInput('verification-model') || 'anthropic/claude-sonnet-4-6',
+		triageModel: getInput('triage-model') || DEFAULT_MODEL,
+		verificationModel: getInput('verification-model') || DEFAULT_MODEL,
 		labels,
 		botLogins: parseBotLogins(getInput('bot-logins')),
 	};

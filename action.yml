@@ -19,7 +19,7 @@ inputs:
     description: 'Cloudflare account ID for the AI REST endpoint. Required when cloudflare-api-key is set.'
     required: false
   cloudflare-models:
-    description: 'JSON mapping catalog IDs to api, contextWindow, maxTokens, and optional reasoning/compat metadata. Select with cloudflare-ai/<catalog-id>; no Workers deployment or named Gateway is required.'
+    description: 'JSON mapping catalog IDs to protocol metadata, overriding built-in defaults. Kimi K3.1 Pro is configured by default. Select with cloudflare-ai/<catalog-id>; no Workers deployment or named Gateway is required.'
     default: '{}'
   openai-api-key:
     description: 'OpenAI API key for LLM calls. Required unless Anthropic or Cloudflare Workers AI credentials are provided.'
@@ -47,10 +47,10 @@ inputs:
 
   triage-model:
     description: 'Model for the triage pipeline (reproduce/diagnose/verify/fix)'
-    default: 'anthropic/claude-opus-4-6'
+    default: 'cloudflare-ai/moonshotai/kimi-k3.1-pro'
   verification-model:
     description: 'Model for fix verification and retriage checks'
-    default: 'anthropic/claude-sonnet-4-6'
+    default: 'cloudflare-ai/moonshotai/kimi-k3.1-pro'
 
   # Label customization
   label-needs-triage:
