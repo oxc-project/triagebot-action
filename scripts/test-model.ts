@@ -6,8 +6,31 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { completeSimple, Type } from '@earendil-works/pi-ai';
 import { createModelResolver } from '../src/models.ts';
+import { additionalTasks } from './model-tasks.ts';
 
-async function main() {
+const indexTask = {
+	name: 'index-bounds',
+	signature: 'fn normalize_index(index: i64, len: u32) -> Option<u32>',
+	prompt: `Fix this Rust function to support negative indices counting backwards from the end. Return None for an empty sequence or an index outside its bounds. Handle every i64 index and every u32 length without overflow. Keep the signature.
+
+fn normalize_index(index: i64, len: u32) -> Option<u32> {
+    Some(index as u32 % len)
+}`,
+	tests: String.raw`#[test]
+fn index_bounds() {
+    for len in [0_u32, 1, 2, 17, u32::MAX] {
+        for index in [i64::MIN, -4294967296, -18, -17, -2, -1, 0, 1, 16, 17, 4294967294, 4294967295, i64::MAX] {
+            let position = if index < 0 { i128::from(len) + i128::from(index) } else { i128::from(index) };
+            let expected = if position >= 0 && position < i128::from(len) { Some(position as u32) } else { None };
+            assert_eq!(normalize_index(index, len), expected, "index={index}, len={len}");
+        }
+    }
+}
+`,
+};
+
+async function evaluate(task: typeof indexTask) {
+	const started = performance.now();
 	const name = process.env.MODEL;
 	assert.ok(name, 'MODEL is required');
 	const apiKey = process.env.CLOUDFLARE_API_KEY;
@@ -22,11 +45,7 @@ async function main() {
 	const user = {
 		role: 'user' as const,
 		timestamp: Date.now(),
-		content: `Fix this Rust function to support negative indices counting backwards from the end. Return None for an empty sequence or an index outside its bounds. Handle every i64 index and every u32 length without overflow. Keep the signature. Call submit_fix exactly once with the complete function source, without Markdown. After the tool result, reply exactly VERIFIED if tests passed, otherwise FAILED. Do not call more tools.
-
-fn normalize_index(index: i64, len: u32) -> Option<u32> {
-    Some(index as u32 % len)
-}`,
+		content: `${task.prompt}\n\nCall submit_fix exactly once with the complete corrected Rust source, without Markdown. After the tool result, reply exactly VERIFIED if tests passed, otherwise FAILED. Do not call more tools.`,
 	};
 	const tools = [
 		{
@@ -37,9 +56,9 @@ fn normalize_index(index: i64, len: u32) -> Option<u32> {
 	];
 	const options = {
 		apiKey,
-		maxTokens: 4096,
+		maxTokens: 8192,
 		reasoning: 'high' as const,
-		timeoutMs: 90_000,
+		timeoutMs: 180_000,
 		maxRetries: 0,
 	};
 	const first = await completeSimple(model, { messages: [user], tools }, options);
@@ -50,25 +69,11 @@ fn normalize_index(index: i64, len: u32) -> Option<u32> {
 	assert.equal(call.name, 'submit_fix');
 	const source = call.arguments.source;
 	assert.equal(typeof source, 'string');
-	assert.ok(source.includes('fn normalize_index(index: i64, len: u32) -> Option<u32>'));
+	assert.ok(source.includes(task.signature));
 	const directory = mkdtempSync(join(tmpdir(), 'triage-model-'));
 	try {
 		const path = join(directory, 'test.rs');
-		writeFileSync(
-			path,
-			`${source}
-#[test]
-fn index_bounds() {
-    for len in [0_u32, 1, 2, 17, u32::MAX] {
-        for index in [i64::MIN, -4294967296, -18, -17, -2, -1, 0, 1, 16, 17, 4294967294, 4294967295, i64::MAX] {
-            let position = if index < 0 { i128::from(len) + i128::from(index) } else { i128::from(index) };
-            let expected = if position >= 0 && position < i128::from(len) { Some(position as u32) } else { None };
-            assert_eq!(normalize_index(index, len), expected, "index={index}, len={len}");
-        }
-    }
-}
-`,
-		);
+		writeFileSync(path, `${source}\n${task.tests}\n`);
 		// Generated code and the compiler receive no inference or GitHub credentials.
 		const env = Object.fromEntries(
 			['PATH', 'HOME', 'RUSTUP_HOME', 'CARGO_HOME'].flatMap((key) =>
@@ -98,7 +103,7 @@ fn index_bounds() {
 						content: [
 							{
 								type: 'text',
-								text: 'All 65 index/length boundary cases passed in both debug and optimized Rust builds.',
+								text: 'All tests passed in both debug and optimized Rust builds.',
 							},
 						],
 						isError: false,
@@ -119,6 +124,10 @@ fn index_bounds() {
 		console.info(
 			JSON.stringify({
 				model: name,
+				task: task.name,
+				elapsedMs: Math.round(performance.now() - started),
+				inputTokens: first.usage.input + reply.usage.input,
+				outputTokens: first.usage.output + reply.usage.output,
 				passed: true,
 				checks: ['streamed tool call', 'Rust debug', 'Rust optimized', 'tool-result round trip'],
 			}),
@@ -128,7 +137,7 @@ fn index_bounds() {
 	}
 }
 
-main().catch((error) => {
+function report(error: unknown) {
 	let message = error instanceof Error ? error.message : String(error);
 	for (const key of ['CLOUDFLARE_API_KEY', 'CLOUDFLARE_ACCOUNT_ID']) {
 		const value = process.env[key];
@@ -136,4 +145,18 @@ main().catch((error) => {
 	}
 	console.error(message);
 	process.exitCode = 1;
-});
+}
+
+async function main() {
+	const tasks = [indexTask, ...(process.env.MODEL_EVAL === 'full' ? additionalTasks : [])];
+	for (const task of tasks) {
+		try {
+			await evaluate(task);
+		} catch (error) {
+			console.info(JSON.stringify({ model: process.env.MODEL, task: task.name, passed: false }));
+			report(error);
+		}
+	}
+}
+
+await main();
