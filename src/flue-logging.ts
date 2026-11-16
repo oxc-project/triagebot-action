@@ -95,7 +95,6 @@ export function createFlueEventLogger(
 					break;
 				case 'turn':
 				case 'idle':
-				case 'submission_settled':
 				case 'run_end':
 					flush();
 					break;

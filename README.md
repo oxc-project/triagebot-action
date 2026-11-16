@@ -81,6 +81,47 @@ All label names are customizable via action inputs.
 
 ## Setup
 
+### Oxc fork: new Cloudflare catalog models
+
+This fork runs entirely in GitHub Actions. Reuse the existing Cloudflare account
+ID and inference token; no Worker, Container, R2 bucket, or GitHub App webhook is
+needed. Third-party inference still requires funded Unified Billing or supported
+provider credentials. A successful build does not establish model access.
+
+New catalog IDs can bypass the bundled model list by supplying their protocol and
+limits explicitly. IDs after `cloudflare-ai/` are sent unchanged to Cloudflare's
+[account REST API](https://developers.cloudflare.com/ai-gateway/usage/rest-api/):
+
+```yaml
+uses: oxc-project/triagebot-action@<commit-sha>
+with:
+  cloudflare-api-key: ${{ secrets.CLOUDFLARE_API_KEY }}
+  cloudflare-account-id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+  triage-model: cloudflare-ai/anthropic/claude-opus-5.5
+  verification-model: cloudflare-workers-ai/@cf/moonshotai/kimi-k2.6
+  cloudflare-models: |
+    {
+      "anthropic/claude-opus-5.5": {
+        "api": "anthropic-messages",
+        "contextWindow": 1000000,
+        "maxTokens": 16384,
+        "reasoning": true,
+        "compat": { "forceAdaptiveThinking": true, "supportsTemperature": false }
+      }
+    }
+  # Keep the repository's other required inputs: read-token, write-token, triage-skill.
+```
+
+Supported formats are `anthropic-messages`, `openai-responses`, and
+`openai-completions`. For GPT-6.1 Sol, use catalog ID `openai/gpt-6.1-sol` and
+`openai-responses`, with the provider's documented limits. `maxTokens` caps each
+response; it may be lower than the model's maximum. Only text input is configured.
+Cost estimates for these explicit models are unavailable in the action; consult
+Cloudflare usage. Existing provider/model inputs continue to use the bundled
+metadata. Run `scripts/test-model.ts` in trusted CI to test generation, streamed
+tool calls, Rust compilation, and a tool-result round trip using this fork's
+actual transport before changing live triage.
+
 ### 1. Create a workflow
 
 Add a single workflow file to your repository:

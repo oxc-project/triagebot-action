@@ -13,6 +13,7 @@ import { handleTriage } from './handlers/triage.ts';
 import { handleVerifyFix } from './handlers/verify-fix.ts';
 import { getInput } from './input.ts';
 import { labelConfigFromInputs } from './labels.ts';
+import { createModelResolver } from './models.ts';
 import { type GitHubEvent, route } from './router.ts';
 
 // ---------- GitHub Actions helpers ----------
@@ -100,6 +101,14 @@ async function main(): Promise<void> {
 	if (ctx.openaiApiKey) {
 		process.env.OPENAI_API_KEY = ctx.openaiApiKey;
 	}
+	// Reject missing model metadata before posting comments or changing labels.
+	const resolveModel = createModelResolver(
+		getInput('cloudflare-models'),
+		ctx.cloudflareAccountId ?? undefined,
+		ctx.cloudflareApiKey ?? undefined,
+	);
+	resolveModel(ctx.triageModel);
+	resolveModel(ctx.verificationModel);
 
 	// Parse the event into the shape the router expects.
 	const issue = payload.issue;

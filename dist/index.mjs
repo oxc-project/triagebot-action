@@ -77273,7 +77273,7 @@ __export(regexes_exports, {
   html5Email: () => html5Email,
   httpProtocol: () => httpProtocol,
   idnEmail: () => idnEmail,
-  integer: () => integer,
+  integer: () => integer2,
   ipv4: () => ipv4,
   ipv6: () => ipv6,
   ksuid: () => ksuid,
@@ -77337,7 +77337,7 @@ function fixedBase64(bodyLength, padding) {
 function fixedBase64url(length) {
   return new RegExp(`^[A-Za-z0-9_-]{${length}}$`);
 }
-var cuid, cuid2, ulid2, xid, ksuid, nanoid, duration, extendedDuration, guid, uuid, uuid44, uuid6, uuid7, email, html5Email, rfc5322Email, unicodeEmail, idnEmail, browserEmail, _emoji, ipv4, ipv6, mac, cidrv4, cidrv6, base64, base64url, hostname, domain, httpProtocol, e164, dateSource, date, string2, bigint, integer, number2, boolean2, _null, _undefined, lowercase, uppercase, hex, md5_hex, md5_base64, md5_base64url, sha1_hex, sha1_base64, sha1_base64url, sha256_hex, sha256_base64, sha256_base64url, sha384_hex, sha384_base64, sha384_base64url, sha512_hex, sha512_base64, sha512_base64url;
+var cuid, cuid2, ulid2, xid, ksuid, nanoid, duration, extendedDuration, guid, uuid, uuid44, uuid6, uuid7, email, html5Email, rfc5322Email, unicodeEmail, idnEmail, browserEmail, _emoji, ipv4, ipv6, mac, cidrv4, cidrv6, base64, base64url, hostname, domain, httpProtocol, e164, dateSource, date, string2, bigint, integer2, number2, boolean2, _null, _undefined, lowercase, uppercase, hex, md5_hex, md5_base64, md5_base64url, sha1_hex, sha1_base64, sha1_base64url, sha256_hex, sha256_base64, sha256_base64url, sha384_hex, sha384_base64, sha384_base64url, sha512_hex, sha512_base64, sha512_base64url;
 var init_regexes = __esm({
   "node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/regexes.js"() {
     init_util();
@@ -77386,7 +77386,7 @@ var init_regexes = __esm({
       return new RegExp(`^${regex2}$`);
     };
     bigint = /^-?\d+n?$/;
-    integer = /^-?\d+$/;
+    integer2 = /^-?\d+$/;
     number2 = /^-?\d+(?:\.\d+)?$/;
     boolean2 = /^(?:true|false)$/i;
     _null = /^null$/i;
@@ -77525,7 +77525,7 @@ var init_checks = __esm({
         bag.minimum = minimum;
         bag.maximum = maximum;
         if (isInt)
-          bag.pattern = integer;
+          bag.pattern = integer2;
       });
       inst._zod.check = (payload) => {
         const input = payload.value;
@@ -89155,7 +89155,7 @@ __export(schemas_exports2, {
   record: () => record2,
   refine: () => refine,
   set: () => set,
-  strictObject: () => strictObject,
+  strictObject: () => strictObject2,
   string: () => string3,
   stringFormat: () => stringFormat,
   stringbool: () => stringbool,
@@ -89381,7 +89381,7 @@ function object2(shape, params) {
   };
   return new ZodObject(def);
 }
-function strictObject(shape, params) {
+function strictObject2(shape, params) {
   return new ZodObject({
     type: "object",
     shape,
@@ -91242,7 +91242,7 @@ __export(external_exports, {
   size: () => _size,
   slugify: () => _slugify,
   startsWith: () => _startsWith,
-  strictObject: () => strictObject,
+  strictObject: () => strictObject2,
   string: () => string3,
   stringFormat: () => stringFormat,
   stringbool: () => stringbool,
@@ -213957,6 +213957,22 @@ function description(description_) {
   };
 }
 // @__NO_SIDE_EFFECTS__
+function integer(message$1) {
+  return {
+    kind: "validation",
+    type: "integer",
+    reference: integer,
+    async: false,
+    expects: null,
+    requirement: Number.isInteger,
+    message: message$1,
+    "~run"(dataset, config$1) {
+      if (dataset.typed && !this.requirement(dataset.value)) _addIssue(this, "integer", dataset, config$1);
+      return dataset;
+    }
+  };
+}
+// @__NO_SIDE_EFFECTS__
 function maxValue(requirement, message$1) {
   return {
     kind: "validation",
@@ -214414,6 +214430,87 @@ function record(key, value$1, message$1) {
           }
           if (!keyDataset.typed || !valueDataset.typed) dataset.typed = false;
           if (keyDataset.typed) dataset.value[keyDataset.value] = valueDataset.value;
+        }
+      } else _addIssue(this, "type", dataset, config$1);
+      return dataset;
+    }
+  };
+}
+// @__NO_SIDE_EFFECTS__
+function strictObject(entries$1, message$1) {
+  return {
+    kind: "schema",
+    type: "strict_object",
+    reference: strictObject,
+    expects: "Object",
+    async: false,
+    entries: entries$1,
+    message: message$1,
+    get "~standard"() {
+      return /* @__PURE__ */ _getStandardProps(this);
+    },
+    "~run"(dataset, config$1) {
+      const input = dataset.value;
+      if (input && typeof input === "object") {
+        dataset.typed = true;
+        dataset.value = {};
+        for (const key in this.entries) {
+          const valueSchema = this.entries[key];
+          if (key in input || (valueSchema.type === "exact_optional" || valueSchema.type === "optional" || valueSchema.type === "nullish") && valueSchema.default !== void 0) {
+            const value$1 = key in input ? input[key] : /* @__PURE__ */ getDefault(valueSchema);
+            const valueDataset = valueSchema["~run"]({ value: value$1 }, config$1);
+            if (valueDataset.issues) {
+              const pathItem = {
+                type: "object",
+                origin: "value",
+                input,
+                key,
+                value: value$1
+              };
+              for (const issue2 of valueDataset.issues) {
+                if (issue2.path) issue2.path.unshift(pathItem);
+                else issue2.path = [pathItem];
+                dataset.issues?.push(issue2);
+              }
+              if (!dataset.issues) dataset.issues = valueDataset.issues;
+              if (config$1.abortEarly) {
+                dataset.typed = false;
+                break;
+              }
+            }
+            if (!valueDataset.typed) dataset.typed = false;
+            dataset.value[key] = valueDataset.value;
+          } else if (valueSchema.fallback !== void 0) dataset.value[key] = /* @__PURE__ */ getFallback(valueSchema);
+          else if (valueSchema.type !== "exact_optional" && valueSchema.type !== "optional" && valueSchema.type !== "nullish") {
+            _addIssue(this, "key", dataset, config$1, {
+              input: void 0,
+              expected: `"${key}"`,
+              path: [{
+                type: "object",
+                origin: "key",
+                input,
+                key,
+                value: input[key]
+              }]
+            });
+            if (config$1.abortEarly) break;
+          }
+        }
+        if (!dataset.issues || !config$1.abortEarly) {
+          for (const key in input) if (!(key in this.entries)) {
+            _addIssue(this, "key", dataset, config$1, {
+              input: key,
+              expected: "never",
+              path: [{
+                type: "object",
+                origin: "key",
+                input,
+                key,
+                value: input[key]
+              }]
+            });
+            break;
+          }
         }
       } else _addIssue(this, "type", dataset, config$1);
       return dataset;
@@ -240904,7 +241001,6 @@ function createFlueEventLogger(write = console.info) {
           break;
         case "turn":
         case "idle":
-        case "submission_settled":
         case "run_end":
           flush();
           break;
@@ -240989,6 +241085,57 @@ function writeLines(value, format, write) {
   }
 }
 
+// src/input.ts
+function getInput(name) {
+  const envName = `INPUT_${name.replace(/ /g, "_").toUpperCase()}`;
+  const legacyEnvName = `INPUT_${name.replace(/[- ]/g, "_").toUpperCase()}`;
+  return (process.env[envName] ?? process.env[legacyEnvName] ?? "").trim();
+}
+
+// src/models.ts
+var modelConfig = strictObject({
+  api: picklist(["anthropic-messages", "openai-responses", "openai-completions"]),
+  contextWindow: pipe(number(), integer(), minValue(1)),
+  maxTokens: pipe(number(), integer(), minValue(1)),
+  reasoning: optional(boolean(), false),
+  compat: optional(
+    strictObject({
+      forceAdaptiveThinking: optional(boolean()),
+      supportsTemperature: optional(boolean()),
+      supportsReasoningEffort: optional(boolean())
+    })
+  )
+});
+function createModelResolver(input, accountId, apiKey) {
+  const models = parse(record(string(), modelConfig), JSON.parse(input || "{}"));
+  return (name) => {
+    if (!name || !name.startsWith("cloudflare-ai/")) return resolveModel(name);
+    const id = name.slice("cloudflare-ai/".length);
+    if (!Object.hasOwn(models, id)) {
+      throw new Error(`Add metadata for "${id}" to the "cloudflare-models" input.`);
+    }
+    if (!accountId || !apiKey) {
+      throw new Error("cloudflare-ai models require cloudflare-account-id and cloudflare-api-key.");
+    }
+    const config2 = models[id];
+    const model = {
+      ...config2,
+      id,
+      name: id,
+      provider: "cloudflare-ai-gateway",
+      baseUrl: `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}/ai${config2.api === "anthropic-messages" ? "" : "/v1"}`,
+      input: ["text"],
+      // Pricing is deliberately unknown; consult Gateway usage for actual cost.
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "cf-aig-collect-log-payload": "false"
+      }
+    };
+    return model;
+  };
+}
+
 // src/flue.ts
 var defaultStore = new InMemorySessionStore();
 async function createDefaultEnv() {
@@ -241008,9 +241155,13 @@ async function createSession(agent) {
     agentConfig: {
       systemPrompt: "",
       skills: {},
-      roles: {},
+      subagents: {},
       model: void 0,
-      resolveModel
+      resolveModel: createModelResolver(
+        getInput("cloudflare-models"),
+        process.env.CLOUDFLARE_ACCOUNT_ID,
+        process.env.CLOUDFLARE_API_KEY
+      )
     },
     createDefaultEnv,
     defaultStore
@@ -241805,13 +241956,6 @@ Return your classification.`,
   );
 }
 
-// src/input.ts
-function getInput(name) {
-  const envName = `INPUT_${name.replace(/ /g, "_").toUpperCase()}`;
-  const legacyEnvName = `INPUT_${name.replace(/[- ]/g, "_").toUpperCase()}`;
-  return (process.env[envName] ?? process.env[legacyEnvName] ?? "").trim();
-}
-
 // src/router.ts
 function route(event, labels) {
   const { action, isPullRequest, issueNumber, issueLabels, commentAuthor, botLogins } = event;
@@ -241910,6 +242054,13 @@ async function main() {
   if (ctx.openaiApiKey) {
     process.env.OPENAI_API_KEY = ctx.openaiApiKey;
   }
+  const resolveModel2 = createModelResolver(
+    getInput("cloudflare-models"),
+    ctx.cloudflareAccountId ?? void 0,
+    ctx.cloudflareApiKey ?? void 0
+  );
+  resolveModel2(ctx.triageModel);
+  resolveModel2(ctx.verificationModel);
   const issue2 = payload.issue;
   if (!issue2) {
     console.info("No issue in event payload, nothing to do.");

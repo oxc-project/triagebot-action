@@ -12,9 +12,11 @@
     "test": "pnpm build && pnpm check:dist && node --test test/*.test.ts test/integration/*.test.ts",
     "test:unit": "node --test test/*.test.ts",
     "test:integration": "pnpm build && pnpm check:dist && node --test test/integration/*.test.ts",
-    "test:evals": "node --test test/evals/*.eval.ts"
+    "test:evals": "node --test test/evals/*.eval.ts",
+    "test:model": "node scripts/test-model.ts"
   },
   "dependencies": {
+    "@earendil-works/pi-ai": "0.79.6",
     "@flue/runtime": "^0.8.1",
     "valibot": "^1.4.1"
   },
