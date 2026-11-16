@@ -56,7 +56,7 @@ async function evaluate(task: typeof indexTask) {
 	];
 	const options = {
 		apiKey,
-		maxTokens: 8192,
+		maxTokens: 16_384,
 		reasoning: 'high' as const,
 		timeoutMs: 180_000,
 		maxRetries: 0,

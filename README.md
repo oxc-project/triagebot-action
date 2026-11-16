@@ -88,9 +88,10 @@ ID and inference token; no Worker, Container, R2 bucket, or GitHub App webhook i
 needed. Third-party inference still requires funded Unified Billing or supported
 provider credentials. A successful build does not establish model access.
 
-Kimi K3.1 Pro is the default for triage and verification, with a 1,048,576-token
-context and a 16,384-token response cap. Its always-on reasoning maps the runtime's
-default effort to `high`, and reasoning is retained across tool calls.
+GLM-5.3 is the default for triage and verification, with a 1,048,576-token
+context and a 16,384-token response cap. The runtime's default reasoning effort
+maps to `high`, and reasoning is retained across tool calls. This Cloudflare-hosted
+model supports Workers Paid billing as well as prepaid AI Gateway credits.
 
 Other catalog IDs can bypass the bundled model list by supplying their protocol
 and limits explicitly. IDs after `cloudflare-ai/` are sent unchanged to Cloudflare's
@@ -101,8 +102,8 @@ uses: oxc-project/triagebot-action@<commit-sha>
 with:
   cloudflare-api-key: ${{ secrets.CLOUDFLARE_API_KEY }}
   cloudflare-account-id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-  triage-model: cloudflare-ai/moonshotai/kimi-k3.1-pro
-  verification-model: cloudflare-ai/moonshotai/kimi-k3.1-pro
+  triage-model: cloudflare-ai/@cf/zai-org/glm-5.3
+  verification-model: cloudflare-ai/@cf/zai-org/glm-5.3
   # Keep the repository's other required inputs: read-token, write-token, triage-skill.
 ```
 
@@ -114,7 +115,11 @@ Cost estimates for these explicit models are unavailable in the action; consult
 Cloudflare usage. Existing provider/model inputs continue to use the bundled
 metadata. Run `scripts/test-model.ts` in trusted CI to test generation, streamed
 tool calls, Rust compilation, and a tool-result round trip using this fork's
-actual transport before changing live triage.
+actual transport before changing live triage. Set `MODEL_EVAL=full` to compare
+four standalone Rust fixes, including Unicode offsets, simultaneous text edits,
+and dependency cycles. Each task compiles and runs in debug and optimized builds.
+These focused checks verify compatibility and correctness; they do not establish
+a general coding benchmark ranking.
 
 ### 1. Create a workflow
 
@@ -201,8 +206,8 @@ Workers AI is called over its OpenAI-compatible REST endpoint, so the action sti
           write-token: ${{ secrets.BOT_GITHUB_TOKEN }}
           cloudflare-api-key: ${{ secrets.CLOUDFLARE_API_KEY }}
           cloudflare-account-id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          triage-model: cloudflare-ai/moonshotai/kimi-k3.1-pro
-          verification-model: cloudflare-ai/moonshotai/kimi-k3.1-pro
+          triage-model: cloudflare-ai/@cf/zai-org/glm-5.3
+          verification-model: cloudflare-ai/@cf/zai-org/glm-5.3
           triage-skill: .agents/skills/triage
 ```
 
@@ -221,8 +226,8 @@ Workers AI is called over its OpenAI-compatible REST endpoint, so the action sti
 | `auto-pr-on-fix` | No | `false` | When `true`, open a PR immediately after triage finds and pushes a fix, skipping the preview/confirmation flow. |
 | `bot-logins` | No | | Comma-separated list of bot usernames whose comments should be ignored. `github-actions[bot]` is always included. |
 | `build-command` | No | | Command to build the project before triage |
-| `triage-model` | No | `cloudflare-ai/moonshotai/kimi-k3.1-pro` | Model for the triage pipeline (`provider/model-id`) |
-| `verification-model` | No | `cloudflare-ai/moonshotai/kimi-k3.1-pro` | Model for fix verification and retriage checks |
+| `triage-model` | No | `cloudflare-ai/@cf/zai-org/glm-5.3` | Model for the triage pipeline (`provider/model-id`) |
+| `verification-model` | No | `cloudflare-ai/@cf/zai-org/glm-5.3` | Model for fix verification and retriage checks |
 
 ¹ Provide either `anthropic-api-key`, `openai-api-key`, or both `cloudflare-api-key` and `cloudflare-account-id`. The credentials must match the provider prefix used in `triage-model` / `verification-model`.
 

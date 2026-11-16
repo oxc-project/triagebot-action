@@ -24,9 +24,28 @@ const modelConfig = v.strictObject({
 	),
 });
 
-export const DEFAULT_MODEL = 'cloudflare-ai/moonshotai/kimi-k3.1-pro';
+export const DEFAULT_MODEL = 'cloudflare-ai/@cf/zai-org/glm-5.3';
 
 const defaultModels: Record<string, v.InferOutput<typeof modelConfig>> = {
+	'@cf/zai-org/glm-5.3': {
+		api: 'openai-completions',
+		contextWindow: 1_048_576,
+		maxTokens: 16_384,
+		reasoning: true,
+		thinkingLevelMap: {
+			off: null,
+			minimal: 'low',
+			low: 'low',
+			medium: 'high',
+			high: 'high',
+			xhigh: 'max',
+		},
+		compat: {
+			supportsReasoningEffort: true,
+			maxTokensField: 'max_tokens',
+			requiresReasoningContentOnAssistantMessages: true,
+		},
+	},
 	'moonshotai/kimi-k3.1-pro': {
 		api: 'openai-completions',
 		contextWindow: 1_048_576,

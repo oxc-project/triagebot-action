@@ -39,89 +39,91 @@ function sse(events: object[]) {
 }
 
 describe('Cloudflare catalog models', () => {
-	it('round-trips Kimi K3.1 reasoning and streamed tools with the default configuration', async () => {
-		const model = createModelResolver('', 'test-account', 'test-token')(DEFAULT_MODEL);
-		assert.ok(model);
-		assert.equal(model.contextWindow, 1_048_576);
-		const requests: Record<string, any>[] = [];
-		globalThis.fetch = async (url, init) => {
-			assert.equal(
-				String(url),
-				'https://api.cloudflare.com/client/v4/accounts/test-account/ai/v1/chat/completions',
+	for (const name of [DEFAULT_MODEL, 'cloudflare-ai/moonshotai/kimi-k3.1-pro']) {
+		it(`round-trips ${name} reasoning and streamed tools`, async () => {
+			const model = createModelResolver('', 'test-account', 'test-token')(name);
+			assert.ok(model);
+			assert.equal(model.contextWindow, 1_048_576);
+			const requests: Record<string, any>[] = [];
+			globalThis.fetch = async (url, init) => {
+				assert.equal(
+					String(url),
+					'https://api.cloudflare.com/client/v4/accounts/test-account/ai/v1/chat/completions',
+				);
+				assert.equal(new Headers(init?.headers).get('authorization'), 'Bearer test-token');
+				const body = JSON.parse(String(init?.body));
+				assert.equal(body.model, model.id);
+				assert.equal(body.reasoning_effort, 'high');
+				assert.equal(body.max_tokens, 256);
+				assert.equal(body.max_completion_tokens, undefined);
+				requests.push(body);
+				const chunk = (delta: object, finish_reason: string | null = null) => ({
+					id: 'chatcmpl_test',
+					object: 'chat.completion.chunk',
+					created: 0,
+					model: model.id,
+					choices: [{ index: 0, delta, finish_reason }],
+				});
+				return requests.length === 1
+					? sse([
+							chunk({ role: 'assistant', reasoning_content: 'Check the boundary cases.' }),
+							chunk({
+								tool_calls: [
+									{
+										index: 0,
+										id: 'call_test',
+										type: 'function',
+										function: { name: 'submit_fix', arguments: '{"source":' },
+									},
+								],
+							}),
+							chunk({ tool_calls: [{ index: 0, function: { arguments: '"test fix"}' } }] }),
+							chunk({}, 'tool_calls'),
+						])
+					: sse([chunk({ role: 'assistant', content: 'VERIFIED' }), chunk({}, 'stop')]);
+			};
+			const user = { role: 'user' as const, content: 'Fix this code.', timestamp: Date.now() };
+			const tools = [
+				{
+					name: 'submit_fix',
+					description: 'Submit a fix.',
+					parameters: Type.Object({ source: Type.String() }),
+				},
+			];
+			// Flue's default is medium; these models accept low/high/max.
+			const options = { apiKey: 'test-token', reasoning: 'medium' as const, maxTokens: 256 };
+			const first = await completeSimple(model, { messages: [user], tools }, options);
+			assert.equal(first.stopReason, 'toolUse', first.errorMessage);
+			const call = first.content.find((part) => part.type === 'toolCall');
+			assert.ok(call);
+			assert.deepEqual(call.arguments, { source: 'test fix' });
+			const reply = await completeSimple(
+				model,
+				{
+					messages: [
+						user,
+						first,
+						{
+							role: 'toolResult',
+							toolCallId: call.id,
+							toolName: call.name,
+							content: [{ type: 'text', text: 'Tests passed.' }],
+							isError: false,
+							timestamp: Date.now(),
+						},
+					],
+					tools,
+				},
+				options,
 			);
-			assert.equal(new Headers(init?.headers).get('authorization'), 'Bearer test-token');
-			const body = JSON.parse(String(init?.body));
-			assert.equal(body.model, 'moonshotai/kimi-k3.1-pro');
-			assert.equal(body.reasoning_effort, 'high');
-			assert.equal(body.max_tokens, 256);
-			assert.equal(body.max_completion_tokens, undefined);
-			requests.push(body);
-			const chunk = (delta: object, finish_reason: string | null = null) => ({
-				id: 'chatcmpl_test',
-				object: 'chat.completion.chunk',
-				created: 0,
-				model: model.id,
-				choices: [{ index: 0, delta, finish_reason }],
-			});
-			return requests.length === 1
-				? sse([
-						chunk({ role: 'assistant', reasoning_content: 'Check the boundary cases.' }),
-						chunk({
-							tool_calls: [
-								{
-									index: 0,
-									id: 'call_test',
-									type: 'function',
-									function: { name: 'submit_fix', arguments: '{"source":' },
-								},
-							],
-						}),
-						chunk({ tool_calls: [{ index: 0, function: { arguments: '"test fix"}' } }] }),
-						chunk({}, 'tool_calls'),
-					])
-				: sse([chunk({ role: 'assistant', content: 'VERIFIED' }), chunk({}, 'stop')]);
-		};
-		const user = { role: 'user' as const, content: 'Fix this code.', timestamp: Date.now() };
-		const tools = [
-			{
-				name: 'submit_fix',
-				description: 'Submit a fix.',
-				parameters: Type.Object({ source: Type.String() }),
-			},
-		];
-		// Flue's default is medium; Kimi must receive the supported high effort.
-		const options = { apiKey: 'test-token', reasoning: 'medium' as const, maxTokens: 256 };
-		const first = await completeSimple(model, { messages: [user], tools }, options);
-		assert.equal(first.stopReason, 'toolUse', first.errorMessage);
-		const call = first.content.find((part) => part.type === 'toolCall');
-		assert.ok(call);
-		assert.deepEqual(call.arguments, { source: 'test fix' });
-		const reply = await completeSimple(
-			model,
-			{
-				messages: [
-					user,
-					first,
-					{
-						role: 'toolResult',
-						toolCallId: call.id,
-						toolName: call.name,
-						content: [{ type: 'text', text: 'Tests passed.' }],
-						isError: false,
-						timestamp: Date.now(),
-					},
-				],
-				tools,
-			},
-			options,
-		);
-		assert.equal(reply.stopReason, 'stop', reply.errorMessage);
-		assert.ok(reply.content.some((part) => part.type === 'text' && part.text === 'VERIFIED'));
-		const assistant = requests[1].messages.find((message: any) => message.role === 'assistant');
-		assert.equal(assistant.reasoning_content, 'Check the boundary cases.');
-		assert.equal(assistant.tool_calls[0].id, call.id);
-		assert.equal(requests[1].messages.at(-1).tool_call_id, call.id);
-	});
+			assert.equal(reply.stopReason, 'stop', reply.errorMessage);
+			assert.ok(reply.content.some((part) => part.type === 'text' && part.text === 'VERIFIED'));
+			const assistant = requests[1].messages.find((message: any) => message.role === 'assistant');
+			assert.equal(assistant.reasoning_content, 'Check the boundary cases.');
+			assert.equal(assistant.tool_calls[0].id, call.id);
+			assert.equal(requests[1].messages.at(-1).tool_call_id, call.id);
+		});
+	}
 
 	it('keeps existing model selection and disabled models working', () => {
 		assert.equal(
