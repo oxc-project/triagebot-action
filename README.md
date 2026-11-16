@@ -108,18 +108,11 @@ with:
 ```
 
 Supported formats are `anthropic-messages`, `openai-responses`, and
-`openai-completions`. For GPT-6.1 Sol, use catalog ID `openai/gpt-6.1-sol` and
-`openai-responses`, with the provider's documented limits. `maxTokens` caps each
-response; it may be lower than the model's maximum. Only text input is configured.
+`openai-completions`. `maxTokens` caps each response; it may be lower than the
+model's maximum. Only text input is configured.
 Cost estimates for these explicit models are unavailable in the action; consult
 Cloudflare usage. Existing provider/model inputs continue to use the bundled
-metadata. Run `scripts/test-model.ts` in trusted CI to test generation, streamed
-tool calls, Rust compilation, and a tool-result round trip using this fork's
-actual transport before changing live triage. Set `MODEL_EVAL=full` to compare
-four standalone Rust fixes, including Unicode offsets, simultaneous text edits,
-and dependency cycles. Each task compiles and runs in debug and optimized builds.
-These focused checks verify compatibility and correctness; they do not establish
-a general coding benchmark ranking.
+metadata.
 
 ### 1. Create a workflow
 
