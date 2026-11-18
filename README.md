@@ -241,6 +241,7 @@ All labels are customizable. These are the defaults:
 | `label-fix-rejected` | `triage: fix rejected` |
 | `label-fix-verified` | `triage: fix verified` |
 | `pr-label-fix-verified` | `fix verified` |
+| `label-package-prefix` | `pkg:` |
 
 ## Architecture
 

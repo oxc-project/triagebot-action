@@ -18,6 +18,7 @@ export interface LabelConfig {
 	fixRejected: string;
 	fixVerified: string;
 	prFixVerified: string;
+	packagePrefix: string;
 }
 
 export function labelConfigFromInputs(getInput: (name: string) => string): LabelConfig {
@@ -33,6 +34,7 @@ export function labelConfigFromInputs(getInput: (name: string) => string): Label
 		fixRejected: getInput('label-fix-rejected') || 'triage: fix rejected',
 		fixVerified: getInput('label-fix-verified') || 'triage: fix verified',
 		prFixVerified: getInput('pr-label-fix-verified') || 'fix verified',
+		packagePrefix: getInput('label-package-prefix') || 'pkg:',
 	};
 }
 

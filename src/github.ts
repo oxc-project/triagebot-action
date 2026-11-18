@@ -99,6 +99,7 @@ export async function fetchIssueDetails(
 export async function fetchRepoLabels(
 	repo: string,
 	token: string,
+	packagePrefix: string,
 ): Promise<{ priorityLabels: RepoLabel[]; packageLabels: RepoLabel[] }> {
 	const allLabels: RepoLabel[] = [];
 	let page = 1;
@@ -119,7 +120,7 @@ export async function fetchRepoLabels(
 
 	return {
 		priorityLabels: allLabels.filter((l) => /^- P\d/.test(l.name)),
-		packageLabels: allLabels.filter((l) => l.name.startsWith('pkg:')),
+		packageLabels: allLabels.filter((l) => l.name.startsWith(packagePrefix)),
 	};
 }
 
