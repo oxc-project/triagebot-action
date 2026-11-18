@@ -86,14 +86,22 @@ export async function fetchIssueDetails(
 			`Failed to fetch issue ${issueNumber} (HTTP ${issueRes.status}): ${await issueRes.text()}`,
 		);
 	}
-	if (!commentsRes.ok) {
-		throw new Error(
-			`Failed to fetch comments for issue ${issueNumber} (HTTP ${commentsRes.status}): ${await commentsRes.text()}`,
+	const issue = (await issueRes.json()) as Record<string, unknown>;
+	const rawComments: Record<string, unknown>[] = [];
+	let response = commentsRes;
+	for (let page = 2; ; page++) {
+		if (!response.ok) {
+			throw new Error(
+				`Failed to fetch comments for issue ${issueNumber} (HTTP ${response.status}): ${await response.text()}`,
+			);
+		}
+		rawComments.push(...((await response.json()) as Record<string, unknown>[]));
+		if (!response.headers.get('link')?.includes('rel="next"')) break;
+		response = await fetch(
+			`https://api.github.com/repos/${repo}/issues/${issueNumber}/comments?per_page=100&page=${page}`,
+			{ headers: headers(token) },
 		);
 	}
-
-	const issue = (await issueRes.json()) as Record<string, unknown>;
-	const rawComments = (await commentsRes.json()) as Record<string, unknown>[];
 
 	return v.parse(issueDetailsSchema, {
 		title: issue.title,
@@ -111,6 +119,35 @@ export async function fetchIssueDetails(
 			createdAt: c.created_at,
 		})),
 	});
+}
+
+export async function createIssue(
+	repo: string,
+	options: { title: string; body: string },
+	token: string,
+): Promise<number> {
+	const res = await fetch(`https://api.github.com/repos/${repo}/issues`, {
+		method: 'POST',
+		headers: headers(token),
+		body: JSON.stringify(options),
+	});
+	if (!res.ok) {
+		throw new Error(`Failed to create issue (HTTP ${res.status}): ${await res.text()}`);
+	}
+	return v.parse(v.object({ number: v.number() }), await res.json()).number;
+}
+
+export async function closeIssue(repo: string, issueNumber: number, token: string): Promise<void> {
+	const res = await fetch(`https://api.github.com/repos/${repo}/issues/${issueNumber}`, {
+		method: 'PATCH',
+		headers: headers(token),
+		body: JSON.stringify({ state: 'closed', state_reason: 'completed' }),
+	});
+	if (!res.ok) {
+		throw new Error(
+			`Failed to close issue #${issueNumber} (HTTP ${res.status}): ${await res.text()}`,
+		);
+	}
 }
 
 // ---------- Labels ----------
@@ -201,7 +238,7 @@ export async function postComment(
 	issueNumber: number,
 	body: string,
 	token: string,
-): Promise<void> {
+): Promise<number> {
 	const res = await fetch(`https://api.github.com/repos/${repo}/issues/${issueNumber}/comments`, {
 		method: 'POST',
 		headers: headers(token),
@@ -209,6 +246,23 @@ export async function postComment(
 	});
 	if (!res.ok) {
 		throw new Error(`Failed to post comment (HTTP ${res.status}): ${await res.text()}`);
+	}
+	return v.parse(v.object({ id: v.number() }), await res.json()).id;
+}
+
+export async function updateComment(
+	repo: string,
+	commentId: number,
+	body: string,
+	token: string,
+): Promise<void> {
+	const res = await fetch(`https://api.github.com/repos/${repo}/issues/comments/${commentId}`, {
+		method: 'PATCH',
+		headers: headers(token),
+		body: JSON.stringify({ body }),
+	});
+	if (!res.ok) {
+		throw new Error(`Failed to update comment (HTTP ${res.status}): ${await res.text()}`);
 	}
 }
 

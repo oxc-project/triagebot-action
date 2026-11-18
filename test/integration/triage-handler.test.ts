@@ -62,7 +62,7 @@ function mockGitHubApi(): void {
 			return jsonResponse([]);
 		}
 		if (url.endsWith('/issues/123/comments') && init?.method === 'POST') {
-			return jsonResponse({});
+			return jsonResponse({ id: 42 });
 		}
 		if (url.includes('/issues/123/labels/')) {
 			return new Response('', { status: 200 });

@@ -23,7 +23,7 @@ async function createDefaultEnv() {
 	);
 }
 
-export async function createSession(agent: CreatedAgent): Promise<FlueSession> {
+export async function createSession(agent: CreatedAgent, name?: string): Promise<FlueSession> {
 	const ctx = createFlueContext({
 		id: `triagebot-action-${process.env.GITHUB_RUN_ID ?? Date.now()}-${
 			process.env.GITHUB_RUN_ATTEMPT ?? '0'
@@ -46,6 +46,6 @@ export async function createSession(agent: CreatedAgent): Promise<FlueSession> {
 	});
 	const logger = createFlueEventLogger();
 	ctx.setEventCallback((event) => logger.present(event));
-	const harness = await ctx.init(agent);
+	const harness = await ctx.init(agent, { name });
 	return harness.session();
 }

@@ -7,7 +7,7 @@ inputs:
     description: 'GitHub token for reading issues, labels, and PRs'
     required: true
   write-token:
-    description: 'GitHub token for posting comments, pushing branches, creating PRs, and managing labels'
+    description: 'GitHub token for creating and closing issues, posting comments, pushing branches, creating PRs, and managing labels'
     required: true
   anthropic-api-key:
     description: 'Anthropic API key for LLM calls. Required unless OpenAI or Cloudflare Workers AI credentials are provided.'
