@@ -485,7 +485,11 @@ async function runTriage(issueNumber: number, ctx: ActionContext): Promise<void>
 	}
 
 	// Fetch repo labels for comment generation and label selection.
-	const { priorityLabels, packageLabels } = await fetchRepoLabels(ctx.repo, ctx.readToken);
+	const { priorityLabels, packageLabels } = await fetchRepoLabels(
+		ctx.repo,
+		ctx.readToken,
+		ctx.labels.packagePrefix,
+	);
 
 	const branchName = isPushed ? branch : null;
 

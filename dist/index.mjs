@@ -214705,7 +214705,7 @@ async function fetchIssueDetails(repo, issueNumber, token) {
     }))
   });
 }
-async function fetchRepoLabels(repo, token) {
+async function fetchRepoLabels(repo, token, packagePrefix) {
   const allLabels = [];
   let page = 1;
   while (true) {
@@ -214723,7 +214723,7 @@ async function fetchRepoLabels(repo, token) {
   }
   return {
     priorityLabels: allLabels.filter((l10) => /^- P\d/.test(l10.name)),
-    packageLabels: allLabels.filter((l10) => l10.name.startsWith("pkg:"))
+    packageLabels: allLabels.filter((l10) => l10.name.startsWith(packagePrefix))
   };
 }
 async function addLabels(repo, issueNumber, labels, token) {
@@ -241238,7 +241238,8 @@ function labelConfigFromInputs(getInput2) {
     fixPending: getInput2("label-fix-pending") || "triage: fix pending",
     fixRejected: getInput2("label-fix-rejected") || "triage: fix rejected",
     fixVerified: getInput2("label-fix-verified") || "triage: fix verified",
-    prFixVerified: getInput2("pr-label-fix-verified") || "fix verified"
+    prFixVerified: getInput2("pr-label-fix-verified") || "fix verified",
+    packagePrefix: getInput2("label-package-prefix") || "pkg:"
   };
 }
 function allTriageLabels(config2) {
@@ -241782,7 +241783,11 @@ async function runTriage(issueNumber, ctx) {
       `Preview release / auto-PR skipped: fixed=${triageResult.fixed} branchPushed=${isPushed}.`
     );
   }
-  const { priorityLabels, packageLabels } = await fetchRepoLabels(ctx.repo, ctx.readToken);
+  const { priorityLabels, packageLabels } = await fetchRepoLabels(
+    ctx.repo,
+    ctx.readToken,
+    ctx.labels.packagePrefix
+  );
   const branchName = isPushed ? branch : null;
   let comment = await generateComment(session, {
     branchName,

@@ -86,6 +86,9 @@ inputs:
   pr-label-fix-verified:
     description: 'Label to apply to PRs created from verified fixes'
     default: 'fix verified'
+  label-package-prefix:
+    description: 'Prefix of repo labels the agent can choose from as package labels'
+    default: 'pkg:'
 
 runs:
   using: 'node24'

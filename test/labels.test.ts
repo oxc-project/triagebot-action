@@ -21,6 +21,7 @@ const config: LabelConfig = {
 	fixRejected: 'triage: fix rejected',
 	fixVerified: 'triage: fix verified',
 	prFixVerified: 'fix verified',
+	packagePrefix: 'pkg:',
 };
 
 describe('labels', () => {
@@ -86,16 +87,19 @@ describe('labels', () => {
 			assert.equal(result.needsTriage, 'triage: needs triage');
 			assert.equal(result.failed, 'triage: failed');
 			assert.equal(result.fixPending, 'triage: fix pending');
+			assert.equal(result.packagePrefix, 'pkg:');
 		});
 
 		it('uses custom values from inputs', () => {
 			const inputs: Record<string, string> = {
 				'label-needs-triage': 'bot: pending',
 				'label-fix-pending': 'bot: awaiting confirmation',
+				'label-package-prefix': 'A-',
 			};
 			const result = labelConfigFromInputs((name) => inputs[name] ?? '');
 			assert.equal(result.needsTriage, 'bot: pending');
 			assert.equal(result.fixPending, 'bot: awaiting confirmation');
+			assert.equal(result.packagePrefix, 'A-');
 			// Others remain defaults.
 			assert.equal(result.fixVerified, 'triage: fix verified');
 		});

@@ -16,6 +16,7 @@ const labels: LabelConfig = {
 	fixRejected: 'triage: fix rejected',
 	fixVerified: 'triage: fix verified',
 	prFixVerified: 'fix verified',
+	packagePrefix: 'pkg:',
 };
 
 function event(overrides: Partial<GitHubEvent>): GitHubEvent {
