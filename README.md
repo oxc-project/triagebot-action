@@ -64,6 +64,12 @@ stateDiagram-v2
 
 All label names are customizable via action inputs.
 
+Triage also sets the GitHub issue type to `Bug`, `Feature`, or `Task`, including
+when reproduction is skipped or unsuccessful. Reported incorrect behavior is a
+`Bug`, requests for new or enhanced functionality are a `Feature`, and maintenance,
+documentation, or other work is a `Task`. These issue types must be enabled for
+the repository, and the write token must have push access to set them.
+
 **Re-triageable labels** — when a new comment arrives on an issue with one of these labels, the bot evaluates whether the comment contains new actionable information and potentially re-runs triage:
 
 - `triage: needs triage`

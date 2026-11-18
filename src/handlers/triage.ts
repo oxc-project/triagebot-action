@@ -21,9 +21,12 @@ import {
 	gitCommit,
 	gitPush,
 	type IssueDetails,
+	type IssueType,
+	issueTypeSchema,
 	type PullRequest,
 	postComment,
 	type RepoLabel,
+	setIssueType,
 	swapLabel,
 } from '../github.ts';
 import { currentTriageLabel } from '../labels.ts';
@@ -34,6 +37,7 @@ export const MAX_TRIAGE_FAILURES = 3;
 const TRIAGE_FAILURE_MARKER = '<!-- triagebot:triage-failed -->';
 
 export interface TriageResult {
+	issueType: IssueType;
 	completedStage: 'reproduce' | 'verify' | 'fix';
 	reproducible: boolean;
 	skipped: boolean;
@@ -116,9 +120,10 @@ async function runTriagePipeline(
 			issueDetails,
 			step: 'reproduce',
 			instructions:
-				'Run only the "reproduce" sub-skill from reproduce.md. Do not continue to diagnose, verify, or fix steps.',
+				'Run only the "reproduce" sub-skill from reproduce.md. Do not continue to diagnose, verify, or fix steps. Classify the issue as Bug (reported incorrect behavior, even if unconfirmed), Feature (new or enhanced functionality), or Task (maintenance, documentation, or other work). Return issueType even when reproduction is skipped.',
 		},
 		result: v.object({
+			issueType: issueTypeSchema,
 			reproducible: v.pipe(
 				v.boolean(),
 				v.description('true if the bug was successfully reproduced, false otherwise'),
@@ -147,6 +152,7 @@ async function runTriagePipeline(
 
 	if (reproduceResult.skipped || !reproduceResult.reproducible) {
 		return {
+			issueType: reproduceResult.issueType,
 			completedStage: 'reproduce',
 			reproducible: reproduceResult.reproducible,
 			skipped: reproduceResult.skipped,
@@ -193,6 +199,7 @@ async function runTriagePipeline(
 
 	if (verifyResult.verdict === 'intended-behavior') {
 		return {
+			issueType: reproduceResult.issueType,
 			completedStage: 'verify',
 			reproducible: true,
 			skipped: false,
@@ -223,6 +230,7 @@ async function runTriagePipeline(
 	});
 
 	return {
+		issueType: reproduceResult.issueType,
 		completedStage: 'fix',
 		reproducible: true,
 		skipped: false,
@@ -418,6 +426,7 @@ async function runTriage(issueNumber: number, ctx: ActionContext): Promise<void>
 	// Run the pipeline.
 	const triageResult = await runTriagePipeline(session, issueNumber, issueDetails);
 	console.info('Triage pipeline result:', triageResult);
+	await setIssueType(ctx.repo, issueNumber, triageResult.issueType, ctx.writeToken);
 	let isPushed = false;
 
 	// Push fix branch if there are changes.

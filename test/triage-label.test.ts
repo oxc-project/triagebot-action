@@ -11,6 +11,7 @@ const ctx = { labels } as unknown as ActionContext;
 
 function result(overrides: Partial<TriageResult>): TriageResult {
 	return {
+		issueType: 'Bug',
 		completedStage: 'fix',
 		reproducible: true,
 		skipped: false,

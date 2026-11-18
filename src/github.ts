@@ -48,6 +48,25 @@ export type RepoLabel = v.InferOutput<typeof repoLabelSchema>;
 
 // ---------- Issues ----------
 
+export const issueTypeSchema = v.picklist(['Bug', 'Feature', 'Task']);
+export type IssueType = v.InferOutput<typeof issueTypeSchema>;
+
+export async function setIssueType(
+	repo: string,
+	issueNumber: number,
+	issueType: IssueType,
+	token: string,
+): Promise<void> {
+	const res = await fetch(`https://api.github.com/repos/${repo}/issues/${issueNumber}`, {
+		method: 'PATCH',
+		headers: headers(token),
+		body: JSON.stringify({ type: issueType }),
+	});
+	if (!res.ok) {
+		throw new Error(`Failed to set issue type (HTTP ${res.status}): ${await res.text()}`);
+	}
+}
+
 export async function fetchIssueDetails(
 	repo: string,
 	issueNumber: number,

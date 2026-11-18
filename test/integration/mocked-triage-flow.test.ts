@@ -154,92 +154,106 @@ function jsonResponse(body: unknown): Response {
 }
 
 describe('mocked triage flow', () => {
-	it('runs an opened issue through unable-to-reproduce without real LLM or GitHub calls', async () => {
-		const triageSkill = setupRepo();
-		process.env.ANTHROPIC_API_KEY = 'test-key';
-		const comments: string[] = [];
-		const addedLabels: string[][] = [];
-		let removedLabel: string | null = null;
-		let anthropicCalls = 0;
+	for (const issueType of ['Bug', 'Feature', 'Task'] as const) {
+		it(`sets ${issueType} type when reproduction ${issueType === 'Bug' ? 'fails' : 'is skipped'}`, async () => {
+			const triageSkill = setupRepo();
+			process.env.ANTHROPIC_API_KEY = 'test-key';
+			const comments: string[] = [];
+			const addedLabels: string[][] = [];
+			let removedLabel: string | null = null;
+			const issueTypes: string[] = [];
+			let anthropicCalls = 0;
 
-		globalThis.fetch = async (input, init) => {
-			const url = String(input);
-			if (url.startsWith('https://api.anthropic.com/')) {
-				anthropicCalls += 1;
-				if (anthropicCalls > 5) {
-					throw new Error('Too many mocked Anthropic calls');
-				}
-				if (anthropicCalls === 1) {
+			globalThis.fetch = async (input, init) => {
+				const url = String(input);
+				if (url.startsWith('https://api.anthropic.com/')) {
+					anthropicCalls += 1;
+					if (anthropicCalls > 5) {
+						throw new Error('Too many mocked Anthropic calls');
+					}
+					if (anthropicCalls === 1) {
+						return anthropicStream({
+							issueType,
+							reproducible: false,
+							skipped: issueType !== 'Bug',
+							skippedReason: issueType === 'Bug' ? null : 'not-actionable',
+						});
+					}
 					return anthropicStream({
-						reproducible: false,
-						skipped: false,
-						skippedReason: null,
+						result:
+							'- **Reproduced:** No\n- **Exploration:** No\n- **Unit Test:** No\n- **Priority:** Priority P3: Minor bug.\n',
 					});
 				}
-				return anthropicStream({
-					result:
-						'- **Reproduced:** No\n- **Exploration:** No\n- **Unit Test:** No\n- **Priority:** Priority P3: Minor bug.\n',
-				});
-			}
 
-			if (url.endsWith('/issues/123')) {
-				return jsonResponse({
-					title: 'Example issue',
-					body: 'Issue body',
-					user: { login: 'reporter' },
-					labels: [{ name: 'triage: needs triage' }],
-					created_at: '2026-01-01T00:00:00Z',
-					state: 'open',
-					number: 123,
-					html_url: 'https://github.com/withastro/astro/issues/123',
-				});
-			}
-			if (url.endsWith('/issues/123/comments?per_page=100')) return jsonResponse([]);
-			if (url.endsWith('/labels?per_page=100&page=1')) {
-				return jsonResponse([
-					{ name: '- P3: minor bug', description: 'Minor bug' },
-					{ name: 'pkg: astro', description: 'Core package' },
-				]);
-			}
-			if (url.endsWith('/issues/123/comments') && init?.method === 'POST') {
-				comments.push(JSON.parse(String(init.body)).body);
-				return jsonResponse({});
-			}
-			if (url.includes('/issues/123/labels/') && init?.method === 'DELETE') {
-				removedLabel = decodeURIComponent(url.split('/').at(-1) ?? '');
-				return new Response('', { status: 200 });
-			}
-			if (url.endsWith('/issues/123/labels') && init?.method === 'POST') {
-				addedLabels.push(JSON.parse(String(init.body)).labels);
-				return jsonResponse([]);
-			}
-			throw new Error(`Unexpected fetch: ${url}`);
-		};
+				if (url.endsWith('/issues/123') && init?.method === 'PATCH') {
+					assert.equal(new Headers(init.headers).get('Authorization'), 'token write-token');
+					const payload = JSON.parse(String(init.body));
+					assert.deepEqual(Object.keys(payload), ['type']);
+					issueTypes.push(payload.type);
+					return jsonResponse({});
+				}
+				if (url.endsWith('/issues/123')) {
+					return jsonResponse({
+						title: 'Example issue',
+						body: 'Issue body',
+						user: { login: 'reporter' },
+						labels: [{ name: 'triage: needs triage' }],
+						created_at: '2026-01-01T00:00:00Z',
+						state: 'open',
+						number: 123,
+						html_url: 'https://github.com/withastro/astro/issues/123',
+					});
+				}
+				if (url.endsWith('/issues/123/comments?per_page=100')) return jsonResponse([]);
+				if (url.endsWith('/labels?per_page=100&page=1')) {
+					return jsonResponse([
+						{ name: '- P3: minor bug', description: 'Minor bug' },
+						{ name: 'pkg: astro', description: 'Core package' },
+					]);
+				}
+				if (url.endsWith('/issues/123/comments') && init?.method === 'POST') {
+					comments.push(JSON.parse(String(init.body)).body);
+					return jsonResponse({});
+				}
+				if (url.includes('/issues/123/labels/') && init?.method === 'DELETE') {
+					removedLabel = decodeURIComponent(url.split('/').at(-1) ?? '');
+					return new Response('', { status: 200 });
+				}
+				if (url.endsWith('/issues/123/labels') && init?.method === 'POST') {
+					addedLabels.push(JSON.parse(String(init.body)).labels);
+					return jsonResponse([]);
+				}
+				throw new Error(`Unexpected fetch: ${url}`);
+			};
 
-		const ctx: ActionContext = {
-			repo: 'withastro/astro',
-			readToken: 'read-token',
-			writeToken: 'write-token',
-			anthropicApiKey: 'test-key',
-			triageSkill,
-			prSkill: null,
-			prSkillName: 'astro-pr-writer',
-			autoPrOnFix: false,
-			buildCommand: null,
-			triageModel: 'anthropic/claude-sonnet-4-6',
-			verificationModel: 'anthropic/claude-sonnet-4-6',
-			labels: labelConfigFromInputs(() => ''),
-			botLogins: ['github-actions[bot]', 'astrobot-houston'],
-		};
+			const ctx: ActionContext = {
+				repo: 'withastro/astro',
+				readToken: 'read-token',
+				writeToken: 'write-token',
+				anthropicApiKey: 'test-key',
+				triageSkill,
+				prSkill: null,
+				prSkillName: 'astro-pr-writer',
+				autoPrOnFix: false,
+				buildCommand: null,
+				triageModel: 'anthropic/claude-sonnet-4-6',
+				verificationModel: 'anthropic/claude-sonnet-4-6',
+				labels: labelConfigFromInputs(() => ''),
+				botLogins: ['github-actions[bot]', 'astrobot-houston'],
+			};
 
-		await withTimeout(handleTriage(123, ctx), 10_000);
+			await withTimeout(handleTriage(123, ctx), 10_000);
 
-		assert.equal(anthropicCalls, 2);
-		assert.equal(comments.length, 1);
-		assert.match(comments[0], /Reproduced/);
-		assert.equal(removedLabel, 'triage: needs triage');
-		assert.deepEqual(addedLabels, [['triage: unable to reproduce']]);
-	});
+			assert.equal(anthropicCalls, 2);
+			assert.equal(comments.length, 1);
+			assert.match(comments[0], /Reproduced/);
+			assert.equal(removedLabel, 'triage: needs triage');
+			assert.deepEqual(issueTypes, [issueType]);
+			assert.deepEqual(addedLabels, [
+				[issueType === 'Bug' ? 'triage: unable to reproduce' : 'triage: not actionable'],
+			]);
+		});
+	}
 
 	it('publishes a preview release for fixed package changes before marking fix pending', async () => {
 		const triageSkill = setupRepo();
@@ -254,6 +268,7 @@ describe('mocked triage flow', () => {
 		const comments: string[] = [];
 		const addedLabels: string[][] = [];
 		const removedLabels: string[] = [];
+		const issueTypes: string[] = [];
 		let anthropicCalls = 0;
 		let commentPromptIncludedPreviewUrl = false;
 
@@ -263,7 +278,12 @@ describe('mocked triage flow', () => {
 				anthropicCalls += 1;
 				const body = JSON.parse(String(init?.body ?? '{}'));
 				if (anthropicCalls === 1) {
-					return anthropicStream({ reproducible: true, skipped: false, skippedReason: null });
+					return anthropicStream({
+						issueType: 'Bug',
+						reproducible: true,
+						skipped: false,
+						skippedReason: null,
+					});
 				}
 				if (anthropicCalls === 2) return anthropicStream({ confidence: 'high' });
 				if (anthropicCalls === 3) return anthropicStream({ verdict: 'bug', confidence: 'high' });
@@ -285,6 +305,13 @@ describe('mocked triage flow', () => {
 				throw new Error('Too many mocked Anthropic calls');
 			}
 
+			if (url.endsWith('/issues/123') && init?.method === 'PATCH') {
+				assert.equal(new Headers(init.headers).get('Authorization'), 'token write-token');
+				const payload = JSON.parse(String(init.body));
+				assert.deepEqual(Object.keys(payload), ['type']);
+				issueTypes.push(payload.type);
+				return jsonResponse({});
+			}
 			if (url.endsWith('/issues/123')) {
 				return jsonResponse({
 					title: 'Example issue',
@@ -341,6 +368,7 @@ describe('mocked triage flow', () => {
 		assert.equal(commentPromptIncludedPreviewUrl, true);
 		assert.equal(comments.length, 1);
 		assert.match(comments[0], /https:\/\/pkg\.pr\.new\/astro@test123/);
+		assert.deepEqual(issueTypes, ['Bug']);
 		assert.deepEqual(removedLabels, ['triage: needs triage']);
 		assert.deepEqual(addedLabels, [['triage: fix pending'], ['- P3: minor bug', 'pkg: astro']]);
 	});
@@ -358,6 +386,7 @@ describe('mocked triage flow', () => {
 		const addedLabels: string[][] = [];
 		const prLabels: string[][] = [];
 		const removedLabels: string[] = [];
+		const issueTypes: string[] = [];
 		let anthropicCalls = 0;
 		let createdPrHead: string | null = null;
 		let createdPrBase: string | null = null;
@@ -367,7 +396,12 @@ describe('mocked triage flow', () => {
 			if (url.startsWith('https://api.anthropic.com/')) {
 				anthropicCalls += 1;
 				if (anthropicCalls === 1) {
-					return anthropicStream({ reproducible: true, skipped: false, skippedReason: null });
+					return anthropicStream({
+						issueType: 'Bug',
+						reproducible: true,
+						skipped: false,
+						skippedReason: null,
+					});
 				}
 				if (anthropicCalls === 2) return anthropicStream({ confidence: 'high' });
 				if (anthropicCalls === 3) return anthropicStream({ verdict: 'bug', confidence: 'high' });
@@ -389,6 +423,13 @@ describe('mocked triage flow', () => {
 				throw new Error('Too many mocked Anthropic calls');
 			}
 
+			if (url.endsWith('/issues/123') && init?.method === 'PATCH') {
+				assert.equal(new Headers(init.headers).get('Authorization'), 'token write-token');
+				const payload = JSON.parse(String(init.body));
+				assert.deepEqual(Object.keys(payload), ['type']);
+				issueTypes.push(payload.type);
+				return jsonResponse({});
+			}
 			if (url.endsWith('/issues/123')) {
 				return jsonResponse({
 					title: 'Example issue',
@@ -465,6 +506,7 @@ describe('mocked triage flow', () => {
 		// The PR got the fix-verified PR label.
 		assert.deepEqual(prLabels, [['fix verified']]);
 		// The issue moved straight to fix verified (no preview => not fix pending).
+		assert.deepEqual(issueTypes, ['Bug']);
 		assert.deepEqual(removedLabels, ['triage: needs triage']);
 		assert.deepEqual(addedLabels, [['triage: fix verified'], ['- P3: minor bug', 'pkg: astro']]);
 		// The reporter comment links the opened PR.
