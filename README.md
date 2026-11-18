@@ -50,7 +50,7 @@ stateDiagram-v2
 
 ### Multi-Bug Reports
 
-Before trying to reproduce a report, Triagebot checks whether it describes independently fixable bugs. It keeps related symptoms and variants together. For a clear split, it opens one self-contained issue per bug, links the issues in both directions, and closes the original only after posting the links. Follow-up issues go through normal triage without being split again.
+Before trying to reproduce a report, Triagebot checks whether it describes independently fixable bugs. It keeps related symptoms and variants together and won't split reports that a maintainer has asked it not to auto-triage. For a clear split, it opens one self-contained issue per bug, links the issues in both directions, and closes the original only after posting the links. Follow-up issues go through normal triage without being split again.
 
 Use a GitHub App token or PAT as `write-token` so the follow-up issues trigger the `issues.opened` workflow. Configure the token's bot login in `bot-logins` so the action can recognize its split comment on retries. If a split fails partway through, the original stays open with a comment for maintainers to finish the split rather than creating duplicate follow-ups on retry.
 
