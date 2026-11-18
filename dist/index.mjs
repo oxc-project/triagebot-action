@@ -214667,6 +214667,17 @@ var repoLabelSchema = object({
   name: string(),
   description: nullable(string())
 });
+var issueTypeSchema = picklist(["Bug", "Feature", "Task"]);
+async function setIssueType(repo, issueNumber, issueType, token) {
+  const res = await fetch(`https://api.github.com/repos/${repo}/issues/${issueNumber}`, {
+    method: "PATCH",
+    headers: headers(token),
+    body: JSON.stringify({ type: issueType })
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to set issue type (HTTP ${res.status}): ${await res.text()}`);
+  }
+}
 async function fetchIssueDetails(repo, issueNumber, token) {
   const [issueRes, commentsRes] = await Promise.all([
     fetch(`https://api.github.com/repos/${repo}/issues/${issueNumber}`, {
@@ -241474,9 +241485,10 @@ async function runTriagePipeline(session, issueNumber, issueDetails) {
       issueNumber,
       issueDetails,
       step: "reproduce",
-      instructions: 'Run only the "reproduce" sub-skill from reproduce.md. Do not continue to diagnose, verify, or fix steps.'
+      instructions: 'Run only the "reproduce" sub-skill from reproduce.md. Do not continue to diagnose, verify, or fix steps. Classify the issue as Bug (reported incorrect behavior, even if unconfirmed), Feature (new or enhanced functionality), or Task (maintenance, documentation, or other work). Return issueType even when reproduction is skipped.'
     },
     result: object({
+      issueType: issueTypeSchema,
       reproducible: pipe(
         boolean(),
         description("true if the bug was successfully reproduced, false otherwise")
@@ -241504,6 +241516,7 @@ async function runTriagePipeline(session, issueNumber, issueDetails) {
   });
   if (reproduceResult.skipped || !reproduceResult.reproducible) {
     return {
+      issueType: reproduceResult.issueType,
       completedStage: "reproduce",
       reproducible: reproduceResult.reproducible,
       skipped: reproduceResult.skipped,
@@ -241546,6 +241559,7 @@ async function runTriagePipeline(session, issueNumber, issueDetails) {
   });
   if (verifyResult.verdict === "intended-behavior") {
     return {
+      issueType: reproduceResult.issueType,
       completedStage: "verify",
       reproducible: true,
       skipped: false,
@@ -241574,6 +241588,7 @@ async function runTriagePipeline(session, issueNumber, issueDetails) {
     })
   });
   return {
+    issueType: reproduceResult.issueType,
     completedStage: "fix",
     reproducible: true,
     skipped: false,
@@ -241725,6 +241740,7 @@ async function runTriage(issueNumber, ctx) {
   await session.shell(`git checkout -B ${JSON.stringify(branch)}`);
   const triageResult = await runTriagePipeline(session, issueNumber, issueDetails);
   console.info("Triage pipeline result:", triageResult);
+  await setIssueType(ctx.repo, issueNumber, triageResult.issueType, ctx.writeToken);
   let isPushed = false;
   {
     const diff = await session.shell("git diff main --stat");
