@@ -32,6 +32,7 @@ import {
 import { currentTriageLabel } from '../labels.ts';
 import { generatePRContent } from '../pr.ts';
 import { generateComment } from './comment.ts';
+import { hasStartedSplit, IssueSplitError, splitIssue } from './split-issue.ts';
 
 export const MAX_TRIAGE_FAILURES = 3;
 const TRIAGE_FAILURE_MARKER = '<!-- triagebot:triage-failed -->';
@@ -375,6 +376,7 @@ export async function handleTriage(issueNumber: number, ctx: ActionContext): Pro
 	try {
 		await runTriage(issueNumber, ctx);
 	} catch (err) {
+		if (err instanceof IssueSplitError) throw err;
 		try {
 			await recordTriageFailure(issueNumber, ctx, err);
 		} catch (failureErr) {
@@ -387,6 +389,7 @@ export async function handleTriage(issueNumber: number, ctx: ActionContext): Pro
 async function runTriage(issueNumber: number, ctx: ActionContext): Promise<void> {
 	const branch = `triagebot/fix-${issueNumber}`;
 	const issueDetails = await fetchIssueDetails(ctx.repo, issueNumber, ctx.readToken);
+	if (issueDetails.state !== 'open' || hasStartedSplit(issueDetails, ctx)) return;
 	const currentLabel = currentTriageLabel(
 		issueDetails.labels.map((l) => l.name),
 		ctx.labels,
@@ -398,6 +401,8 @@ async function runTriage(issueNumber: number, ctx: ActionContext): Promise<void>
 		console.info(`Skipping triage for issue #${issueNumber}: maximum failed attempts reached.`);
 		return;
 	}
+
+	if (await splitIssue(issueDetails, ctx)) return;
 
 	const agent = createAgent(() => ({
 		sandbox: local({

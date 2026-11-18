@@ -21,8 +21,12 @@ import {
 	swapLabel,
 } from '../github.ts';
 import { generatePRContent } from '../pr.ts';
+import { hasStartedSplit } from './split-issue.ts';
 
 export async function handleVerifyFix(issueNumber: number, ctx: ActionContext): Promise<void> {
+	const issueDetails = await fetchIssueDetails(ctx.repo, issueNumber, ctx.readToken);
+	if (issueDetails.state !== 'open' || hasStartedSplit(issueDetails, ctx)) return;
+
 	const branch = await findBranch(
 		ctx.repo,
 		[`triagebot/fix-${issueNumber}`, `flue/fix-${issueNumber}`],
@@ -31,8 +35,6 @@ export async function handleVerifyFix(issueNumber: number, ctx: ActionContext): 
 	if (!branch) {
 		throw new Error(`No fix branch found for issue #${issueNumber}`);
 	}
-	const issueDetails = await fetchIssueDetails(ctx.repo, issueNumber, ctx.readToken);
-
 	// Find the latest non-bot comment.
 	const latestUserComment = [...issueDetails.comments]
 		.reverse()

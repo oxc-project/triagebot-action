@@ -21,6 +21,7 @@ stateDiagram-v2
     needs_triage --> skipped: Environment limitation
     needs_triage --> unable_to_reproduce: Can't reproduce
     needs_triage --> unable_to_fix: Reproduced, no fix
+    needs_triage --> split: Independent bugs moved to separate issues
     needs_triage --> fix_pending: Reproduced + fix found
     needs_triage --> failed: Unexpected triage failure
 
@@ -46,6 +47,12 @@ stateDiagram-v2
         [*] --> create_pr
     }
 ```
+
+### Multi-Bug Reports
+
+Before trying to reproduce a report, Triagebot checks whether it describes independently fixable bugs. It keeps related symptoms and variants together. For a clear split, it opens one self-contained issue per bug, links the issues in both directions, and closes the original only after posting the links. Follow-up issues go through normal triage without being split again.
+
+Use a GitHub App token or PAT as `write-token` so the follow-up issues trigger the `issues.opened` workflow. Configure the token's bot login in `bot-logins` so the action can recognize its split comment on retries. If a split fails partway through, the original stays open with a comment for maintainers to finish the split rather than creating duplicate follow-ups on retry.
 
 ### Label Reference
 
@@ -186,7 +193,7 @@ For a production example, see the [Astro monorepo skills](https://github.com/wit
 The action uses two GitHub tokens:
 
 - **`read-token`** — For reading issues, labels, and PRs. The default `GITHUB_TOKEN` works.
-- **`write-token`** — For posting comments, pushing fix branches, creating PRs, and managing labels. This should be a GitHub App token or PAT with write access to issues and contents.
+- **`write-token`** — For creating and closing issues, posting comments, pushing fix branches, creating PRs, and managing labels. This should be a GitHub App token or PAT with write access to issues and contents.
 
 You also need credentials for the AI agent. Choose one of:
 
@@ -215,7 +222,7 @@ Workers AI is called over its OpenAI-compatible REST endpoint, so the action sti
 | Input | Required | Default | Description |
 |-------|----------|---------|-------------|
 | `read-token` | Yes | | GitHub token for reading issues/labels/PRs |
-| `write-token` | Yes | | GitHub token for posting comments, pushing branches, creating PRs |
+| `write-token` | Yes | | GitHub token for creating and closing issues, posting comments, pushing branches, creating PRs, and managing labels |
 | `anthropic-api-key` | No¹ | | Anthropic API key for LLM calls |
 | `cloudflare-api-key` | No¹ | | Cloudflare inference token. Enables `cloudflare-ai/*` and `cloudflare-workers-ai/*` models. Requires `cloudflare-account-id` |
 | `cloudflare-account-id` | No¹ | | Cloudflare account ID for the AI REST endpoint. Required when `cloudflare-api-key` is set |
@@ -255,6 +262,7 @@ The action has two layers:
 
 **Action-owned** — the state machine, GitHub API interactions, and LLM calls that drive the workflow:
 - FSM routing based on event type and current label
+- Splitting independent bugs into separate issues before reproduction
 - Re-triage evaluation (is there new actionable information?)
 - Fix verification (did the reporter confirm the fix?)
 - Comment generation from triage findings

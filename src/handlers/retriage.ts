@@ -10,6 +10,7 @@ import * as v from 'valibot';
 import type { ActionContext } from '../context.ts';
 import { createSession } from '../flue.ts';
 import { fetchIssueDetails, swapLabel } from '../github.ts';
+import { hasStartedSplit } from './split-issue.ts';
 import { countTriageFailures, handleTriage, MAX_TRIAGE_FAILURES } from './triage.ts';
 
 export async function handleRetriage(
@@ -18,6 +19,7 @@ export async function handleRetriage(
 	ctx: ActionContext,
 ): Promise<void> {
 	const issueDetails = await fetchIssueDetails(ctx.repo, issueNumber, ctx.readToken);
+	if (issueDetails.state !== 'open' || hasStartedSplit(issueDetails, ctx)) return;
 	if (
 		currentLabel === ctx.labels.failed &&
 		countTriageFailures(issueDetails) >= MAX_TRIAGE_FAILURES

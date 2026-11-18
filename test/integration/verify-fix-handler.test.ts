@@ -148,7 +148,7 @@ describe('handleVerifyFix integration', () => {
 			}
 			if (url.endsWith('/issues/123/comments') && init?.method === 'POST') {
 				events.push('comment-issue');
-				return jsonResponse({});
+				return jsonResponse({ id: 42 });
 			}
 			throw new Error(`Unexpected fetch: ${url}`);
 		};
